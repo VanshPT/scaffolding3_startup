@@ -289,105 +289,143 @@
     </div>
 
     <script>
-        // TODO: Students need to implement these functions for Part 4
-        
+        // Helpers
         function setUrl(url) {
             document.getElementById('url').value = url;
         }
-        
+    
         function showLoading() {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
             document.getElementById('error').style.display = 'none';
             document.getElementById('submitBtn').disabled = true;
         }
-        
+    
         function hideLoading() {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('submitBtn').disabled = false;
         }
-        
+    
         function showError(message) {
             hideLoading();
             document.getElementById('errorMessage').textContent = message;
             document.getElementById('error').style.display = 'block';
             document.getElementById('results').style.display = 'none';
         }
-        
+    
+        function escHtml(s) {
+            return String(s).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+    
         function displayResults(data) {
             hideLoading();
-            
-            // Display statistics
-            const stats = data.statistics;
+    
+            const stats = data.statistics || {};
             const statsContainer = document.getElementById('stats');
+    
+            // core stats
             statsContainer.innerHTML = `
                 <div class="stat-card">
-                    <span class="stat-value">${stats.total_characters.toLocaleString()}</span>
+                    <span class="stat-value">${(stats.total_characters ?? 0).toLocaleString()}</span>
                     <div class="stat-label">Characters</div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">${stats.total_words.toLocaleString()}</span>
+                    <span class="stat-value">${(stats.total_words ?? 0).toLocaleString()}</span>
                     <div class="stat-label">Words</div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">${stats.total_sentences.toLocaleString()}</span>
+                    <span class="stat-value">${(stats.total_sentences ?? 0).toLocaleString()}</span>
                     <div class="stat-label">Sentences</div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">${stats.avg_word_length.toFixed(1)}</span>
+                    <span class="stat-value">${Number(stats.avg_word_length ?? 0).toFixed(1)}</span>
                     <div class="stat-label">Avg Word Length</div>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-value">${stats.avg_sentence_length.toFixed(1)}</span>
+                    <span class="stat-value">${Number(stats.avg_sentence_length ?? 0).toFixed(1)}</span>
                     <div class="stat-label">Avg Sentence Length</div>
                 </div>
             `;
-            
-            // Display summary
-            document.getElementById('summary').textContent = data.summary;
-            
-            // Display text preview (first 500 characters)
-            const preview = data.cleaned_text.substring(0, 500) + 
-                          (data.cleaned_text.length > 500 ? '...' : '');
+    
+            // optional: top 10 words (if provided)
+            if (Array.isArray(stats.most_common_words) && stats.most_common_words.length) {
+                const items = stats.most_common_words
+                    .map(([w, c]) => `<li><code>${escHtml(w)}</code> — ${c}</li>`).join('');
+                const block = document.createElement('div');
+                block.className = 'stat-card';
+                block.style.gridColumn = '1 / -1';
+                block.innerHTML = `<strong>Top 10 Words</strong><ul style="margin-top:.5rem; padding-left:1rem">${items}</ul>`;
+                statsContainer.appendChild(block);
+            }
+    
+            // summary
+            document.getElementById('summary').textContent = data.summary || '';
+    
+            // preview (first 500 chars)
+            const cleaned = data.cleaned_text || '';
+            const preview = cleaned.slice(0, 500) + (cleaned.length > 500 ? '…' : '');
             document.getElementById('preview').textContent = preview;
-            
-            // Show results
+    
             document.getElementById('results').style.display = 'block';
             document.getElementById('error').style.display = 'none';
         }
-        
-        // TODO: Implement the form submission handler
-        document.getElementById('textForm').addEventListener('submit', async function(e) {
+    
+        function isTxtUrl(u) {
+            try {
+                const url = new URL(u);
+                const p = url.pathname.toLowerCase();
+                return (p.endsWith('.txt') || p.endsWith('.txt.utf-8'));
+            } catch {
+                return false;
+            }
+        }
+    
+        // Submit handler -> calls /api/clean
+        document.getElementById('textForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-            
-            const url = document.getElementById('url').value;
-            
-            // TODO: Validate URL
-            if (!url.endsWith('.txt')) {
-                showError('Please enter a valid .txt URL from Project Gutenberg');
+    
+            const url = document.getElementById('url').value.trim();
+    
+            // Basic validation (server also validates)
+            if (!isTxtUrl(url)) {
+                showError('Please enter a valid .txt URL (e.g., a Project Gutenberg plain-text file).');
                 return;
             }
-            
+    
             showLoading();
-            
+    
             try {
-                // TODO: Make API call to /api/clean endpoint
-                // Hint: Use fetch() with POST method
-                // Send JSON: {"url": url}
-                // Handle the response
-                
-                // For now, show an error since the API isn't implemented yet
-                setTimeout(() => {
-                    showError('API not implemented yet. Complete Part 3 to make this work!');
-                }, 1000);
-                
-            } catch (error) {
-                showError('Network error: ' + error.message);
+                const resp = await fetch('/api/clean', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+    
+                // Try to parse JSON even on error to show server message
+                let payload = null;
+                try { payload = await resp.json(); } catch { /* ignore */ }
+    
+                if (!resp.ok) {
+                    showError((payload && payload.error) || `${resp.status} ${resp.statusText}`);
+                    return;
+                }
+                if (!payload || payload.success !== true) {
+                    showError((payload && payload.error) || 'Unknown error from server.');
+                    return;
+                }
+    
+                displayResults(payload);
+    
+            } catch (err) {
+                showError('Network error: ' + err.message);
             }
         });
-        
+    
         // Health check on page load
-        window.addEventListener('load', async function() {
+        window.addEventListener('load', async function () {
             try {
                 const response = await fetch('/health');
                 const data = await response.json();
@@ -397,5 +435,6 @@
             }
         });
     </script>
+    
 </body>
 </html>

@@ -27,55 +27,41 @@ def health_check():
 
 @app.route('/api/clean', methods=['POST'])
 def clean_text():
-    """
-    TODO: Implement this endpoint for Part 3
-    
-    API endpoint that accepts a URL and returns cleaned text
-    
-    Expected JSON input:
-        {"url": "https://www.gutenberg.org/files/1342/1342-0.txt"}
-    
-    Returns JSON:
-        {
-            "success": true/false,
-            "cleaned_text": "...",
-            "statistics": {...},
-            "summary": "...",
-            "error": "..." (if applicable)
-        }
-    """
     try:
-        # TODO: Get JSON data from request
-        # TODO: Extract URL from the JSON
-        # TODO: Validate URL (should be .txt)
-        # TODO: Use preprocessor.fetch_from_url() 
-        # TODO: Clean the text with preprocessor.clean_gutenberg_text()
-        # TODO: Normalize with preprocessor.normalize_text()
-        # TODO: Get statistics with preprocessor.get_text_statistics()
-        # TODO: Create summary with preprocessor.create_summary()
-        # TODO: Return JSON response
-        
+        data = request.get_json(silent=True)
+        if not data or "url" not in data:
+            return jsonify({"success": False, "error": "Missing JSON body or 'url' field."}), 400
+
+        url = str(data["url"]).strip()
+        if not url:
+            return jsonify({"success": False, "error": "URL must be a non-empty string."}), 400
+
+        raw_text = preprocessor.fetch_from_url(url)
+        cleaned = preprocessor.clean_gutenberg_text(raw_text)
+
+        # NOTE: Do NOT call normalize_text here (it contains a bad regex).
+        stats = preprocessor.get_text_statistics(cleaned)           # does safe normalization inside
+        summary = preprocessor.create_summary(cleaned, 3)           # does safe normalization inside
+
         return jsonify({
-            "success": False,
-            "error": "Not implemented yet - complete this for Part 3!"
-        }), 501
-        
+            "success": True,
+            "cleaned_text": cleaned,   # first 500 chars shown in UI per spec
+            "statistics": stats,
+            "summary": summary
+        }), 200
+
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": f"Server error: {str(e)}"
-        }), 500
+        app.logger.error("Error in /api/clean\n" + traceback.format_exc())
+        return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_text():
     """
-    TODO: Implement this endpoint for Part 3
-    
     API endpoint that accepts raw text and returns statistics only
-    
+
     Expected JSON input:
         {"text": "Your raw text here..."}
-    
+
     Returns JSON:
         {
             "success": true/false,
@@ -84,17 +70,30 @@ def analyze_text():
         }
     """
     try:
-        # TODO: Get JSON data from request
-        # TODO: Extract text from the JSON
-        # TODO: Get statistics with preprocessor.get_text_statistics()
-        # TODO: Return JSON response
-        
+        # Get JSON data from request
+        data = request.get_json(silent=True)
+        if not data or "text" not in data:
+            return jsonify({"success": False, "error": "Missing JSON body or 'text' field."}), 400
+
+        # Extract text from the JSON
+        text = str(data["text"])
+        if not text.strip():
+            return jsonify({"success": False, "error": "Text must be a non-empty string."}), 400
+
+        # Normalize so sentence/word detection is consistent
+        normalized = preprocessor.normalize_text(text, preserve_sentences=True)
+
+        # Compute statistics only
+        stats = preprocessor.get_text_statistics(normalized)
+
+        # Return JSON response
         return jsonify({
-            "success": False,
-            "error": "Not implemented yet - complete this for Part 3!"
-        }), 501
-        
+            "success": True,
+            "statistics": stats
+        }), 200
+
     except Exception as e:
+        app.logger.error("Error in /api/analyze\n" + traceback.format_exc())
         return jsonify({
             "success": False,
             "error": f"Server error: {str(e)}"

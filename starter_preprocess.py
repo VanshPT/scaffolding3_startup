@@ -11,6 +11,7 @@ import requests
 from typing import List, Dict, Tuple
 from collections import Counter
 import string
+from urllib.parse import urlparse
 
 class TextPreprocessor:
     """Handles all the annoying text cleaning so you can focus on the fun stuff"""
@@ -129,38 +130,90 @@ class TextPreprocessor:
         Raises:
             Exception if URL is invalid or cannot be reached
         """
-        # Hint: Use requests.get() and validate that it's a .txt URL
-        # Don't forget error handling!
-        raise NotImplementedError("Implement this for Part 2 of the assignment")
+        if not isinstance(url, str) or not url.strip():
+            raise ValueError("URL must be a non-empty string.")
+
+        u = urlparse(url)
+        if u.scheme not in {"http", "https"} or not u.netloc:
+            raise ValueError("URL must start with http(s)://")
+
+        path = u.path.lower()
+        if not (path.endswith(".txt") or path.endswith(".txt.utf-8")):
+            raise ValueError("URL must point to a .txt file.")
+
+        try:
+            r = requests.get(url, timeout=15, headers={"User-Agent": "TextPreprocessor/1.0"})
+            r.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Failed to fetch URL: {e}") from e
+
+        ctype = r.headers.get("Content-Type", "")
+        if "text/plain" not in ctype and not path.endswith(".txt"):
+            raise ValueError(f"Expected a text file; got Content-Type '{ctype}'")
+
+        r.encoding = r.encoding or r.apparent_encoding or "utf-8"
+        return r.text
     
     def get_text_statistics(self, text: str) -> Dict:
         """
-        TODO: Calculate basic statistics about the text
-        
-        Returns dictionary with:
-            - total_characters
-            - total_words  
-            - total_sentences
-            - avg_word_length
-            - avg_sentence_length
-            - most_common_words (top 10)
+        Calculate basic statistics about the text.
+        Uses normalize_text when possible; falls back to a safe normalizer otherwise.
         """
-        # Hint: Use the existing tokenize methods and Counter
-        raise NotImplementedError("Implement this for Part 2 of the assignment")
+        try:
+            norm = self.normalize_text(text, preserve_sentences=True)
+        except re.error:
+            # Safe fallback (no brittle char-classes)
+            t = text.lower()
+            t = (t.replace('\u201C', '"').replace('\u201D', '"')    # “ ”
+                .replace('\u2018', "'").replace('\u2019', "'")     # ‘ ’
+                .replace('\u2014', '-').replace('\u2013', '-'))    # — –
+            t = re.sub(r"[^\w\s.!?'-]", " ", t)
+            norm = re.sub(r"\s+", " ", t).strip()
+
+        sentences = self.tokenize_sentences(norm)
+        words = self.tokenize_words(norm)
+        chars = self.tokenize_chars(norm, include_space=True)
+
+        total_characters = len(chars)
+        total_words = len(words)
+        total_sentences = len(sentences)
+        avg_word_length = (sum(len(w) for w in words) / total_words) if total_words else 0.0
+        avg_sentence_length = (total_words / total_sentences) if total_sentences else 0.0
+        most_common_words = Counter(words).most_common(10)
+
+        return {
+            "total_characters": total_characters,
+            "total_words": total_words,
+            "total_sentences": total_sentences,
+            "avg_word_length": avg_word_length,
+            "avg_sentence_length": avg_sentence_length,
+            "most_common_words": most_common_words,
+        }
     
     def create_summary(self, text: str, num_sentences: int = 3) -> str:
-        """
-        TODO: Create a simple extractive summary by returning the first N sentences
-        
-        Args:
-            text: Cleaned text
-            num_sentences: Number of sentences to include
-            
-        Returns:
-            Summary string
-        """
-        # Hint: Use tokenize_sentences() and join the first N sentences
-        raise NotImplementedError("Implement this for Part 2 of the assignment")
+        """Return the first N sentences, with a safe normalization fallback."""
+        if not isinstance(text, str):
+            raise ValueError("text must be a string")
+        if not isinstance(num_sentences, int) or num_sentences <= 0:
+            num_sentences = 3
+
+        try:
+            norm = self.normalize_text(text, preserve_sentences=True)
+        except re.error:
+            t = text.lower()
+            t = (t.replace('\u201C', '"').replace('\u201D', '"')
+                .replace('\u2018', "'").replace('\u2019', "'")
+                .replace('\u2014', '-').replace('\u2013', '-'))
+            t = re.sub(r"[^\w\s.!?'-]", " ", t)
+            norm = re.sub(r"\s+", " ", t).strip()
+
+        sentences = self.tokenize_sentences(norm)
+        if not sentences:
+            return ""
+        out = ". ".join(sentences[:min(num_sentences, len(sentences))]).strip()
+        if out and out[-1] not in ".!?":
+            out += "."
+        return out
 
 
 class FrequencyAnalyzer:
