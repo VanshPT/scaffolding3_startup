@@ -197,3 +197,19 @@ By completing this assignment, you will:
 **Total: 50 points**
 
 Good luck! This assignment prepares you for the main Shannon Information Theory assignment where you'll implement n-gram models and text generation using similar preprocessing techniques.
+
+
+# Working App's Screenshots
+<img width="953" height="892" alt="1sc3bai" src="https://github.com/user-attachments/assets/1dac80b6-435b-47bd-8378-a65fee4d7fb0" />
+<img width="1272" height="880" alt="2sc3bai" src="https://github.com/user-attachments/assets/2d9bade2-da88-4a78-98fe-4850928f02ba" />
+<img width="1237" height="563" alt="3sc3bai" src="https://github.com/user-attachments/assets/bc614da4-38b5-41a0-9166-4dd0ddde6b89" />
+<img width="1918" height="962" alt="4sc3bai" src="https://github.com/user-attachments/assets/a29e0209-4018-467c-8eb1-3e89a4ca78bc" />
+<img width="332" height="683" alt="5sc3bai" src="https://github.com/user-attachments/assets/efdd4ce4-9947-47ea-9f25-0cb54563ce03" />
+<img width="430" height="865" alt="7sc3bai" src="https://github.com/user-attachments/assets/6adde126-0cae-48ab-a3da-aa3f4e7fbccf" />
+<img width="425" height="872" alt="6sc3bai" src="https://github.com/user-attachments/assets/e39647ac-9653-4518-8236-83db5c6fa48c" />
+<img width="427" height="862" alt="8sc3bai" src="https://github.com/user-attachments/assets/49a99770-6b97-42c1-bd08-91529ff681ed" />
+
+
+
+
+
